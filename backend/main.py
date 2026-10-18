@@ -34,31 +34,45 @@ class ScanRequest(BaseModel):
     repo_url: str
 
 
-def explain_vuln_with_gemini(vuln: dict) -> str:
+def explain_vulns_batch(vulns: list[dict]) -> list[str]:
+    """Explain all vulns in a single Gemma 4 call."""
     if not gemini_client:
-        return "Set GEMINI_API_KEY env var to get AI explanations."
+        return ["Set GEMINI_API_KEY env var to get AI explanations."] * len(vulns)
 
-    prompt = f"""You are a security expert. Explain this vulnerability in plain English for a developer who is not a security expert.
-Keep it under 4 sentences. Be practical — tell them what could go wrong and what to do.
+    vuln_list = ""
+    for i, v in enumerate(vulns, 1):
+        vuln_list += f"""
+{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','')} | Severity: {v['severity']}
+   Summary: {v['summary']}
+"""
 
-Package: {vuln['package']} {vuln.get('version', '')} ({vuln['ecosystem']})
-CVE/ID: {vuln['id']}
-Summary: {vuln['summary']}
-Severity: {vuln['severity']}
+    prompt = f"""You are a security expert. For each vulnerability below, write a 2-3 sentence plain English explanation for a developer.
+Cover: what the risk is, what an attacker could do, and how to fix it.
 
-Explain:
-1. What this vulnerability actually means in plain terms
-2. What an attacker could do if it's exploited
-3. The simplest fix (upgrade version, etc.)"""
+Format your response EXACTLY like this for each one:
+1. <explanation here>
+2. <explanation here>
+... and so on.
+
+Vulnerabilities:
+{vuln_list}"""
 
     try:
         response = gemini_client.models.generate_content(
             model="gemma-4-31b-it",
             contents=prompt,
         )
-        return response.text.strip()
+        text = response.text.strip()
+        # Parse numbered responses
+        import re
+        parts = re.split(r'\n?\d+\.\s+', text)
+        parts = [p.strip() for p in parts if p.strip()]
+        # Pad if Gemma returned fewer explanations than expected
+        while len(parts) < len(vulns):
+            parts.append("Explanation unavailable.")
+        return parts[:len(vulns)]
     except Exception as e:
-        return f"Gemini explanation unavailable: {e}"
+        return [f"Gemini explanation unavailable: {e}"] * len(vulns)
 
 
 @app.get("/health")
@@ -81,9 +95,12 @@ def scan_repo(req: ScanRequest):
     severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "UNKNOWN": 4}
     vulns.sort(key=lambda v: severity_order.get(v["severity"].upper(), 4))
 
+    # Cap at 15 to keep response fast
+    vulns = vulns[:15]
+    explanations = explain_vulns_batch(vulns)
     enriched = []
-    for v in vulns:
-        v["explanation"] = explain_vuln_with_gemini(v)
+    for v, explanation in zip(vulns, explanations):
+        v["explanation"] = explanation
         enriched.append(v)
 
     return {
