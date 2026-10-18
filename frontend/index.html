@@ -612,21 +612,29 @@
       const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
       if (!h.length) return;
       const row = document.getElementById('historyRow');
-      row.innerHTML = h.map(url => `<button class="history-chip" title="${escHtml(url)}" onclick="fillHistory('${escHtml(url)}')">${escHtml(url.replace('https://github.com/', ''))}</button>`).join('');
+      row.innerHTML = h.map((entry, i) => `<button class="history-chip" title="${escHtml(entry.url)}" onclick="fillHistory(${i})">${escHtml(entry.url.replace('https://github.com/', ''))}</button>`).join('');
       document.getElementById('historySection').hidden = false;
     } catch(e) {}
   }
-  function saveHistory(url) {
+  function saveHistory(url, data) {
     try {
       let h = JSON.parse(localStorage.getItem('ve-history') || '[]');
-      h = [url, ...h.filter(u => u !== url)].slice(0, 3);
+      h = [{ url, data }, ...h.filter(e => e.url !== url)].slice(0, 3);
       localStorage.setItem('ve-history', JSON.stringify(h));
       loadHistory();
     } catch(e) {}
   }
-  window.fillHistory = function(url) {
-    repoInput.value = url;
-    repoInput.focus();
+  window.fillHistory = function(idx) {
+    try {
+      const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
+      const entry = h[idx];
+      if (!entry) return;
+      repoInput.value = entry.url;
+      lastScanData = entry.data;
+      clearError();
+      renderSummary(entry.data);
+      renderVulns(entry.data.top_vulnerabilities, entry.data.total_vulnerabilities_found);
+    } catch(e) {}
   };
   loadHistory();
 
@@ -818,7 +826,7 @@
 
       const data = await res.json();
       lastScanData = data;
-      saveHistory(url);
+      saveHistory(url, data);
       setStatus('', false);
       renderSummary(data);
       renderVulns(data.top_vulnerabilities, data.total_vulnerabilities_found);
