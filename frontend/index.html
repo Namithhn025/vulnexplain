@@ -1,0 +1,536 @@
+<title>VulnExplain</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  /* Dark terminal-inspired layout — monospace data columns, accent red-orange for severity */
+  :root {
+    --bg: #0d0f14;
+    --surface: #141720;
+    --border: #22263a;
+    --fg: #e2e6f0;
+    --fg-muted: #7a829a;
+    --accent: #ff5733;
+    --accent-soft: rgba(255,87,51,0.12);
+    --green: #2ecc71;
+    --yellow: #f0c040;
+    --red: #ff4444;
+    --blue: #4fa3e0;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --border: #dde1ee;
+      --fg: #1a1d2e;
+      --fg-muted: #6b7290;
+      --accent: #e0411a;
+      --accent-soft: rgba(224,65,26,0.08);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --border: #dde1ee;
+    --fg: #1a1d2e;
+    --fg-muted: #6b7290;
+    --accent: #e0411a;
+    --accent-soft: rgba(224,65,26,0.08);
+    color-scheme: light;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0;
+    min-height: 100%;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-block: 28px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .logo-text span { color: var(--accent); }
+  .header-sub {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--fg-muted);
+    font-family: var(--mono);
+  }
+
+  /* Scan form */
+  .scan-form {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .scan-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--fg);
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 200px;
+  }
+  .scan-input::placeholder { color: var(--fg-muted); }
+  .scan-input:focus { border-color: var(--accent); }
+
+  .scan-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .scan-btn:hover { opacity: 0.88; }
+  .scan-btn:active { transform: scale(0.97); }
+  .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Status / loading */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--fg-muted);
+  }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Summary row */
+  .summary {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-chip .label { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  .stat-chip .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  .stat-chip.critical .value { color: var(--red); }
+  .stat-chip.high .value { color: var(--accent); }
+
+  /* Vuln list */
+  .vuln-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+
+  .vuln-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .vuln-card:hover { border-color: var(--accent); }
+  .vuln-card.sev-CRITICAL { border-left: 3px solid var(--red); }
+  .vuln-card.sev-HIGH     { border-left: 3px solid var(--accent); }
+  .vuln-card.sev-MEDIUM   { border-left: 3px solid var(--yellow); }
+  .vuln-card.sev-LOW      { border-left: 3px solid var(--green); }
+  .vuln-card.sev-UNKNOWN  { border-left: 3px solid var(--fg-muted); }
+
+  .vuln-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px 14px;
+    flex-wrap: wrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  .vuln-meta { flex: 1; min-width: 0; }
+  .vuln-id {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .vuln-summary {
+    font-size: 14px;
+    color: var(--fg);
+    line-height: 1.45;
+  }
+  .vuln-pkg {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-muted);
+    margin-top: 5px;
+  }
+  .sev-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+  .sev-CRITICAL { background: rgba(255,68,68,0.15); color: var(--red); }
+  .sev-HIGH     { background: var(--accent-soft); color: var(--accent); }
+  .sev-MEDIUM   { background: rgba(240,192,64,0.12); color: var(--yellow); }
+  .sev-LOW      { background: rgba(46,204,113,0.12); color: var(--green); }
+  .sev-UNKNOWN  { background: rgba(122,130,154,0.15); color: var(--fg-muted); }
+
+  .chevron {
+    width: 18px; height: 18px;
+    color: var(--fg-muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    align-self: center;
+  }
+  .vuln-card.open .chevron { transform: rotate(90deg); }
+
+  .vuln-body {
+    border-top: 1px solid var(--border);
+    padding: 18px 20px;
+    display: none;
+  }
+  .vuln-card.open .vuln-body { display: block; }
+
+  .ai-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+    font-family: var(--mono);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-label::before {
+    content: '◆';
+    font-size: 8px;
+  }
+  .explanation {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--fg);
+    margin-bottom: 14px;
+    white-space: pre-wrap;
+  }
+
+  .refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .ref-link {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+    text-decoration: none;
+    background: rgba(79,163,224,0.08);
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid rgba(79,163,224,0.2);
+    transition: background 0.15s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 320px;
+  }
+  .ref-link:hover { background: rgba(79,163,224,0.16); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--fg-muted);
+    font-size: 14px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    font-family: var(--mono);
+  }
+  .empty-state .big { font-size: 32px; margin-bottom: 10px; }
+
+  .error-bar {
+    background: rgba(255,68,68,0.1);
+    border: 1px solid rgba(255,68,68,0.3);
+    color: #ff8888;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+  }
+
+  /* No-js / api warning */
+  .api-notice {
+    background: var(--accent-soft);
+    border: 1px solid rgba(255,87,51,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--fg);
+    margin-bottom: 20px;
+  }
+  .api-notice strong { color: var(--accent); }
+
+  @media (max-width: 480px) {
+    .scan-form { flex-direction: column; }
+    .scan-btn { width: 100%; }
+    .summary { flex-direction: column; }
+    .stat-chip { flex-direction: row; align-items: center; gap: 12px; }
+    .stat-chip .value { font-size: 18px; }
+  }
+</style>
+
+<div class="header">
+  <div class="logo-icon">VE</div>
+  <div>
+    <div class="logo-text">Vuln<span>Explain</span></div>
+  </div>
+  <div class="header-sub">OSV.dev + Gemini AI</div>
+</div>
+
+<div id="api-notice" class="api-notice" hidden>
+  <strong>Note:</strong> Backend must be running at <code>http://localhost:8000</code>. Start it with <code>python main.py</code>.
+</div>
+
+<form class="scan-form" id="scanForm">
+  <input
+    class="scan-input"
+    type="url"
+    id="repoUrl"
+    placeholder="https://github.com/owner/repo"
+    required
+    autocomplete="off"
+    spellcheck="false"
+  >
+  <button class="scan-btn" type="submit" id="scanBtn">Scan Repo</button>
+</form>
+
+<div id="statusBar" class="status-bar" hidden>
+  <div class="spinner"></div>
+  <span id="statusText">Scanning dependencies…</span>
+</div>
+
+<div id="errorBar" class="error-bar" hidden></div>
+
+<div id="summary" class="summary" hidden></div>
+<div id="results"></div>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  const form = document.getElementById('scanForm');
+  const repoInput = document.getElementById('repoUrl');
+  const scanBtn = document.getElementById('scanBtn');
+  const statusBar = document.getElementById('statusBar');
+  const statusText = document.getElementById('statusText');
+  const errorBar = document.getElementById('errorBar');
+  const summaryEl = document.getElementById('summary');
+  const resultsEl = document.getElementById('results');
+
+  function showError(msg) {
+    errorBar.textContent = msg;
+    errorBar.hidden = false;
+  }
+  function clearError() { errorBar.hidden = true; }
+
+  function setStatus(msg, visible = true) {
+    statusText.textContent = msg;
+    statusBar.hidden = !visible;
+  }
+
+  function sevCounts(vulns) {
+    const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+    for (const v of vulns) {
+      const s = (v.severity || 'UNKNOWN').toUpperCase();
+      counts[s in counts ? s : 'UNKNOWN']++;
+    }
+    return counts;
+  }
+
+  function renderSummary(data) {
+    const counts = sevCounts(data.vulnerabilities);
+    summaryEl.innerHTML = `
+      <div class="stat-chip">
+        <span class="label">Packages</span>
+        <span class="value">${data.total_packages_scanned}</span>
+      </div>
+      <div class="stat-chip">
+        <span class="label">Vulns Found</span>
+        <span class="value">${data.vulnerabilities_found}</span>
+      </div>
+      <div class="stat-chip critical">
+        <span class="label">Critical</span>
+        <span class="value">${counts.CRITICAL}</span>
+      </div>
+      <div class="stat-chip high">
+        <span class="label">High</span>
+        <span class="value">${counts.HIGH}</span>
+      </div>
+      <div class="stat-chip">
+        <span class="label">Medium</span>
+        <span class="value">${counts.MEDIUM}</span>
+      </div>
+      <div class="stat-chip">
+        <span class="label">Dep File</span>
+        <span class="value" style="font-size:13px;align-self:center">${escHtml(data.dependency_file)}</span>
+      </div>
+    `;
+    summaryEl.hidden = false;
+  }
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderVulns(vulns) {
+    if (!vulns.length) {
+      resultsEl.innerHTML = `
+        <div class="empty-state">
+          <div class="big">✓</div>
+          No vulnerabilities found in scanned packages.
+        </div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = `<div class="vuln-list">${vulns.map((v, i) => {
+      const sev = (v.severity || 'UNKNOWN').toUpperCase();
+      const refs = (v.references || []).filter(Boolean);
+      return `
+        <div class="vuln-card sev-${sev}" id="card-${i}">
+          <div class="vuln-header" onclick="toggleCard(${i})">
+            <div class="vuln-meta">
+              <div class="vuln-id">${escHtml(v.id)}</div>
+              <div class="vuln-summary">${escHtml(v.summary)}</div>
+              <div class="vuln-pkg">${escHtml(v.package)} ${escHtml(v.version || '')} · ${escHtml(v.ecosystem)}</div>
+            </div>
+            <span class="sev-badge sev-${sev}">${sev}</span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
+          <div class="vuln-body">
+            <div class="ai-label">Gemini Explanation</div>
+            <div class="explanation">${escHtml(v.explanation || 'No explanation available.')}</div>
+            ${refs.length ? `<div class="refs">${refs.map(r => `<a href="${escHtml(r)}" target="_blank" rel="noopener noreferrer" class="ref-link">${escHtml(r)}</a>`).join('')}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('')}</div>`;
+
+    // Auto-open first card
+    if (vulns.length) toggleCard(0);
+  }
+
+  window.toggleCard = function(i) {
+    const card = document.getElementById(`card-${i}`);
+    if (card) card.classList.toggle('open');
+  };
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = repoInput.value.trim();
+    if (!url) return;
+
+    clearError();
+    summaryEl.hidden = true;
+    resultsEl.innerHTML = '';
+    scanBtn.disabled = true;
+    setStatus('Fetching dependency file…');
+
+    try {
+      setStatus('Checking OSV.dev for vulnerabilities…');
+      const res = await fetch(`${API}/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url: url }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      setStatus('Getting AI explanations from Gemini…');
+      const data = await res.json();
+
+      setStatus('', false);
+      renderSummary(data);
+      renderVulns(data.vulnerabilities);
+    } catch (err) {
+      setStatus('', false);
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        showError('Cannot reach the backend. Make sure it\'s running: cd backend && python main.py');
+      } else {
+        showError(err.message);
+      }
+    } finally {
+      scanBtn.disabled = false;
+    }
+  });
+</script>
