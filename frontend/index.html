@@ -396,6 +396,21 @@
   }
   .copy-btn:hover { background: var(--accent-dark); }
 
+  .listen-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--fg-muted);
+    border: 1.5px solid var(--border);
+    padding: 3px 10px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .listen-btn:hover { border-color: var(--accent-dark); color: var(--fg); }
+  .listen-btn.loading { opacity: 0.5; cursor: wait; }
+
   .refs {
     display: flex;
     flex-wrap: wrap;
@@ -614,6 +629,43 @@
   };
   loadHistory();
 
+  // ── Sarvam TTS ──
+  let currentAudio = null;
+  window.speakExplanation = async function(btn) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const idx = btn.dataset.idx;
+    const text = document.getElementById(`exp-${idx}`)?.textContent?.trim();
+    if (!text) return;
+    btn.textContent = '… Loading';
+    btn.classList.add('loading');
+    try {
+      const res = await fetch(`${API}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const { audio_b64 } = await res.json();
+      const binary = atob(audio_b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      currentAudio = new Audio(url);
+      currentAudio.play();
+      btn.textContent = '⏹ Stop';
+      btn.classList.remove('loading');
+      currentAudio.onended = () => { btn.textContent = '▶ Listen'; currentAudio = null; };
+      btn.onclick = function() {
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; btn.textContent = '▶ Listen'; }
+        btn.onclick = () => speakExplanation(btn);
+      };
+    } catch(e) {
+      btn.textContent = '▶ Listen';
+      btn.classList.remove('loading');
+    }
+  };
+
   // ── Export JSON ──
   window.exportJSON = function() {
     if (!lastScanData) return;
@@ -705,8 +757,11 @@
           </div>
           <div class="vuln-body">
             ${v.summary && v.summary !== 'No summary available' ? `<div class="vuln-summary-text">${escHtml(v.summary)}</div>` : ''}
-            <div class="block-label">Gemma 4 Explanation</div>
-            <div class="explanation-text">${escHtml(v.explanation || 'No explanation available.')}</div>
+            <div class="block-label" style="display:flex;align-items:center;gap:8px;">
+              <span>Gemma 4 Explanation</span>
+              <button class="listen-btn" id="listen-${i}" data-idx="${i}" onclick="speakExplanation(this)">&#9654; Listen</button>
+            </div>
+            <div class="explanation-text" id="exp-${i}">${escHtml(v.explanation || 'No explanation available.')}</div>
             ${v.fix ? `
             <div class="block-label" style="margin-top:16px;">Fix</div>
             <div class="fix-box">

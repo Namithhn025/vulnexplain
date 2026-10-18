@@ -4,14 +4,17 @@ Multi-agent architecture:
   Agent 1 (Fetcher)   — fetches & parses repo dependencies
   Agent 2 (Scanner)   — queries OSV.dev for vulnerabilities
   Agent 3 (Explainer) — Gemma 4 explains top vulns in plain English
+  Sarvam TTS          — voices explanations in English (Indian accent)
 """
 
 import os
 import re
 import uvicorn
+import requests as http_requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from google import genai
 from scanner import get_packages_from_repo, check_osv
@@ -27,6 +30,7 @@ app.add_middleware(
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "")
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 MODEL = "gemma-4-26b-a4b-it"
 
@@ -131,6 +135,30 @@ def scan_repo(req: ScanRequest):
         "severity_summary": severity_summary,
         "top_vulnerabilities": explained,
     }
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@app.post("/tts")
+def text_to_speech(req: TTSRequest):
+    if not SARVAM_API_KEY:
+        raise HTTPException(status_code=503, detail="SARVAM_API_KEY not configured")
+    text = req.text[:2400]  # stay within Sarvam's 2500 char limit
+    resp = http_requests.post(
+        "https://api.sarvam.ai/text-to-speech",
+        headers={"api-subscription-key": SARVAM_API_KEY, "Content-Type": "application/json"},
+        json={"text": text, "language_code": "en-IN", "model": "bulbul:v4-flash", "speaker": "shubh"},
+        timeout=15,
+    )
+    if not resp.ok:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    data = resp.json()
+    audios = data.get("audios", [])
+    if not audios:
+        raise HTTPException(status_code=500, detail="No audio returned from Sarvam")
+    return JSONResponse({"audio_b64": audios[0]})
 
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
