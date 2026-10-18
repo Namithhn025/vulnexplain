@@ -86,13 +86,54 @@ def check_osv(packages: list[dict]) -> list[dict]:
     vulns = []
     for pkg, result in zip(packages, results):
         for v in result.get("vulns", []):
+            severity = _extract_severity(v)
             vulns.append({
                 "package": pkg["name"],
                 "version": pkg.get("version"),
                 "ecosystem": pkg["ecosystem"],
                 "id": v.get("id"),
                 "summary": v.get("summary", "No summary available"),
-                "severity": v.get("database_specific", {}).get("severity", "UNKNOWN"),
+                "severity": severity,
                 "references": [r.get("url") for r in v.get("references", [])[:2]],
             })
     return vulns
+
+
+def _extract_severity(v: dict) -> str:
+    """Extract severity from multiple OSV fields."""
+    # Try database_specific.severity
+    sev = v.get("database_specific", {}).get("severity", "")
+    if sev:
+        return sev.upper()
+    # Try severity array (CVSS)
+    for s in v.get("severity", []):
+        score_str = s.get("score", "")
+        # CVSS v3 vector has severity encoded
+        if "CVSS:3" in score_str:
+            base = _cvss3_to_severity(score_str)
+            if base:
+                return base
+    # Try affected[].ecosystem_specific or ranges
+    for aff in v.get("affected", []):
+        sev = aff.get("ecosystem_specific", {}).get("severity", "")
+        if sev:
+            return sev.upper()
+    return "UNKNOWN"
+
+
+def _cvss3_to_severity(vector: str) -> str:
+    """Parse CVSS v3 base score from AV:../AC:../PR:../UI:../S:../C:../I:../A:.."""
+    try:
+        # Look for /AV: which starts the base metrics
+        parts = {p.split(":")[0]: p.split(":")[1] for p in vector.split("/") if ":" in p}
+        c = parts.get("C", "N")
+        i = parts.get("I", "N")
+        a = parts.get("A", "N")
+        high = sum(1 for x in [c, i, a] if x == "H")
+        if high >= 2:
+            return "HIGH"
+        if high == 1:
+            return "MEDIUM"
+        return "LOW"
+    except Exception:
+        return ""

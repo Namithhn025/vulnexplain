@@ -544,6 +544,7 @@
   <div class="header-tags">
     <span class="tag">OSV.dev</span>
     <span class="tag">Gemma 4</span>
+    <span class="tag">Sarvam AI</span>
     <span class="tag">Multi-Agent</span>
     <span class="tag">Open Source</span>
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">Dark</button>
@@ -611,7 +612,7 @@
       const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
       if (!h.length) return;
       const row = document.getElementById('historyRow');
-      row.innerHTML = h.map(url => `<button class="history-chip" title="${escHtml(url)}" onclick="useHistory('${escHtml(url)}')">${escHtml(url.replace('https://github.com/', ''))}</button>`).join('');
+      row.innerHTML = h.map(url => `<button class="history-chip" title="${escHtml(url)}" onclick="fillHistory('${escHtml(url)}')">${escHtml(url.replace('https://github.com/', ''))}</button>`).join('');
       document.getElementById('historySection').hidden = false;
     } catch(e) {}
   }
@@ -623,9 +624,9 @@
       loadHistory();
     } catch(e) {}
   }
-  window.useHistory = function(url) {
+  window.fillHistory = function(url) {
     repoInput.value = url;
-    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    repoInput.focus();
   };
   loadHistory();
 

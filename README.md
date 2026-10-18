@@ -6,6 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square&logo=python)](https://python.org)
 [![Gemma 4](https://img.shields.io/badge/AI-Gemma%204-green?style=flat-square&logo=google)](https://ai.google.dev)
 [![OSV.dev](https://img.shields.io/badge/CVE%20Data-OSV.dev-lightblue?style=flat-square)](https://osv.dev)
+[![Sarvam AI](https://img.shields.io/badge/Voice-Sarvam%20AI-purple?style=flat-square)](https://sarvam.ai)
 
 **Live demo:** https://vulnexplain-btbp.onrender.com
 
@@ -71,6 +72,12 @@ GitHub Repo URL
          ▼
   Prioritized vulnerability report
   (Critical → High → Medium → Low)
+         │
+         ▼
+┌─────────────────┐
+│  Sarvam TTS     │  bulbul:v4-flash (en-IN)
+│  Voice Agent    │  Reads explanation aloud on demand
+└─────────────────┘
 ```
 
 ## Tech Stack
@@ -79,7 +86,8 @@ GitHub Repo URL
 |---|---|
 | Backend | Python, FastAPI |
 | Vulnerability Data | [OSV.dev](https://osv.dev) — Open Source Vulnerabilities database (free, no key needed) |
-| AI Explanations | Gemma 4 via Gemini API |
+| AI Explanations | Gemma 4 (`gemma-4-26b-a4b-it`) via Gemini API |
+| Voice Narration | Sarvam AI TTS (`bulbul:v4-flash`, `en-IN`) |
 | Frontend | Vanilla HTML/CSS/JS |
 | Deployment | Render |
 
@@ -129,7 +137,12 @@ Open source powers the world — but dependency vulnerabilities are the #1 attac
 ## Hackathon
 
 Built for **Hacktoberfest Hack Day Bengaluru 2026**
-- **Primary Track:** Track 2 — Best Open-Source AI Project (O3: Trustworthy and Verifiable AI)
-- **Secondary Track:** Track 1 — G5: Built with Gemma 4
+
+| Track | Criteria | How VulnExplain qualifies |
+|---|---|---|
+| **Track 1 — G5** | Built with Gemma 4 | Gemma 4 (`gemma-4-26b-a4b-it`) explains every CVE in plain English |
+| **Track 2 — O3** | Trustworthy & Verifiable AI | Every explanation links to real OSV.dev CVE data — fully auditable |
+| **Track 3 — S6** | Built with Sarvam AI | Sarvam TTS (`bulbul:v4-flash`) voices the vulnerability explanations in English (Indian accent) |
+
 - **Team:** TheCockroaches
 - **Event:** 18 October 2026, Startup Park, Bengaluru
