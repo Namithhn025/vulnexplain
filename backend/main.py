@@ -27,7 +27,7 @@ app.add_middleware(
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 
 
 class ScanRequest(BaseModel):
