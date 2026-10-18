@@ -1,18 +1,19 @@
 """
 VulnExplain — FastAPI backend
-Scans a GitHub repo's dependencies against OSV.dev,
-then uses Gemini to explain each vulnerability in plain English.
+Multi-agent architecture:
+  Agent 1 (Fetcher)   — fetches & parses repo dependencies
+  Agent 2 (Scanner)   — queries OSV.dev for vulnerabilities
+  Agent 3 (Explainer) — Gemma 4 explains top vulns in plain English
 """
 
 import os
+import re
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from google import genai
-from google.genai import types as genai_types
 from scanner import get_packages_from_repo, check_osv
 
 app = FastAPI(title="VulnExplain")
@@ -26,95 +27,127 @@ app.add_middleware(
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+MODEL = "gemma-4-26b-a4b-it"
 
 
 class ScanRequest(BaseModel):
     repo_url: str
 
 
-def explain_vulns_batch(vulns: list[dict]) -> list[str]:
-    """Explain all vulns in a single Gemma 4 call."""
+# ── Agent 1: Fetcher ─────────────────────────────────────────────────────────
+
+def agent_fetcher(repo_url: str) -> tuple[list[dict], str]:
+    """Fetch and parse dependencies from a GitHub repo."""
+    packages, file_type = get_packages_from_repo(repo_url)
+    return packages, file_type
+
+
+# ── Agent 2: Scanner ─────────────────────────────────────────────────────────
+
+def agent_scanner(packages: list[dict]) -> tuple[list[dict], dict]:
+    """Query OSV.dev and return all vulns + severity summary."""
+    vulns = check_osv(packages)
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "UNKNOWN": 4}
+    vulns.sort(key=lambda v: severity_order.get(v["severity"].upper(), 4))
+
+    summary = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    for v in vulns:
+        s = v["severity"].upper()
+        summary[s if s in summary else "UNKNOWN"] += 1
+
+    return vulns, summary
+
+
+# ── Agent 3: Explainer ────────────────────────────────────────────────────────
+
+def agent_explainer(vulns: list[dict]) -> list[dict]:
+    """Use Gemma 4 to explain top 5 vulns and suggest exact fix versions."""
+    top = vulns[:5]
+
     if not gemini_client:
-        return ["Set GEMINI_API_KEY env var to get AI explanations."] * len(vulns)
+        for v in top:
+            v["explanation"] = "Set GEMINI_API_KEY to get AI explanations."
+            v["fix"] = "Check the package's changelog for a patched version."
+        return top
 
     vuln_list = ""
-    for i, v in enumerate(vulns, 1):
-        vuln_list += f"""
-{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','')} | Severity: {v['severity']}
-   Summary: {v['summary']}
-"""
+    for i, v in enumerate(top, 1):
+        vuln_list += f"{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','?')} | Severity: {v['severity']}\n   Summary: {v['summary']}\n\n"
 
-    prompt = f"""You are a security expert. For each vulnerability below, write a 2-3 sentence plain English explanation for a developer.
-Cover: what the risk is, what an attacker could do, and how to fix it.
+    prompt = f"""You are a security expert helping developers understand vulnerabilities.
 
-Format your response EXACTLY like this for each one:
-1. <explanation here>
-2. <explanation here>
-... and so on.
+For each vulnerability below, respond with EXACTLY this format:
+EXPLANATION: <2-3 plain English sentences — what the risk is and what an attacker could do>
+FIX: <one line — the exact upgrade command or version, e.g. "pip install django>=4.2.0" or "npm install express@4.18.2">
 
-Vulnerabilities:
-{vuln_list}"""
+---
+{vuln_list}
+Respond for all {len(top)} vulnerabilities, numbered 1 to {len(top)}."""
 
     try:
-        response = gemini_client.models.generate_content(
-            model="gemma-4-26b-a4b-it",
-            contents=prompt,
-        )
+        response = gemini_client.models.generate_content(model=MODEL, contents=prompt)
         text = response.text.strip()
-        # Parse numbered responses
-        import re
-        parts = re.split(r'\n?\d+\.\s+', text)
-        parts = [p.strip() for p in parts if p.strip()]
-        # Pad if Gemma returned fewer explanations than expected
-        while len(parts) < len(vulns):
-            parts.append("Explanation unavailable.")
-        return parts[:len(vulns)]
-    except Exception as e:
-        return [f"Gemini explanation unavailable: {e}"] * len(vulns)
 
+        # Parse each numbered block
+        blocks = re.split(r'\n?(?=\d+\.)', text)
+        explanations = []
+        fixes = []
+        for block in blocks:
+            if not block.strip():
+                continue
+            exp_match = re.search(r'EXPLANATION:\s*(.+?)(?=FIX:|$)', block, re.DOTALL)
+            fix_match = re.search(r'FIX:\s*(.+?)(?=\n\d+\.|$)', block, re.DOTALL)
+            explanations.append(exp_match.group(1).strip() if exp_match else "Explanation unavailable.")
+            fixes.append(fix_match.group(1).strip() if fix_match else "Check the package's changelog for a patched version.")
+
+        for i, v in enumerate(top):
+            v["explanation"] = explanations[i] if i < len(explanations) else "Explanation unavailable."
+            v["fix"] = fixes[i] if i < len(fixes) else "Check the package's changelog for a patched version."
+
+    except Exception as e:
+        for v in top:
+            v["explanation"] = f"Gemma 4 unavailable: {e}"
+            v["fix"] = "Check the package's changelog for a patched version."
+
+    return top
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
-    return {"ok": True, "gemini_configured": bool(GEMINI_API_KEY)}
+    return {"ok": True, "gemini_configured": bool(GEMINI_API_KEY), "model": MODEL}
 
 
 @app.post("/scan")
 def scan_repo(req: ScanRequest):
-    packages, file_type = get_packages_from_repo(req.repo_url)
-
+    # Agent 1 — Fetch
+    packages, file_type = agent_fetcher(req.repo_url)
     if not packages:
         raise HTTPException(
             status_code=404,
-            detail=f"No supported dependency file found in {req.repo_url}. Supported: requirements.txt, package.json",
+            detail=f"No supported dependency file found. Supported: requirements.txt, package.json",
         )
 
-    vulns = check_osv(packages)
+    # Agent 2 — Scan
+    all_vulns, severity_summary = agent_scanner(packages)
+    total_vulns = len(all_vulns)
 
-    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "UNKNOWN": 4}
-    vulns.sort(key=lambda v: severity_order.get(v["severity"].upper(), 4))
-
-    # Cap at 5 top vulns for fast response
-    vulns = vulns[:5]
-    explanations = explain_vulns_batch(vulns)
-    enriched = []
-    for v, explanation in zip(vulns, explanations):
-        v["explanation"] = explanation
-        enriched.append(v)
+    # Agent 3 — Explain top 5
+    explained = agent_explainer(all_vulns)
 
     return {
         "repo_url": req.repo_url,
         "dependency_file": file_type,
         "total_packages_scanned": len(packages),
-        "vulnerabilities_found": len(enriched),
-        "vulnerabilities": enriched,
+        "total_vulnerabilities_found": total_vulns,
+        "severity_summary": severity_summary,
+        "top_vulnerabilities": explained,
     }
 
 
-# Serve frontend
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

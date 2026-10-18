@@ -352,7 +352,7 @@
   <div>
     <div class="logo-text">Vuln<span>Explain</span></div>
   </div>
-  <div class="header-sub">OSV.dev + Gemma 4</div>
+  <div class="header-sub">OSV.dev · Gemma 4 · Multi-Agent</div></div>
 </div>
 
 <div id="api-notice" class="api-notice" hidden>
@@ -415,27 +415,31 @@
   }
 
   function renderSummary(data) {
-    const counts = sevCounts(data.vulnerabilities);
+    const sev = data.severity_summary || {};
     summaryEl.innerHTML = `
       <div class="stat-chip">
         <span class="label">Packages</span>
         <span class="value">${data.total_packages_scanned}</span>
       </div>
       <div class="stat-chip">
-        <span class="label">Vulns Found</span>
-        <span class="value">${data.vulnerabilities_found}</span>
+        <span class="label">Total Vulns</span>
+        <span class="value">${data.total_vulnerabilities_found}</span>
       </div>
       <div class="stat-chip critical">
         <span class="label">Critical</span>
-        <span class="value">${counts.CRITICAL}</span>
+        <span class="value">${sev.CRITICAL || 0}</span>
       </div>
       <div class="stat-chip high">
         <span class="label">High</span>
-        <span class="value">${counts.HIGH}</span>
+        <span class="value">${sev.HIGH || 0}</span>
       </div>
       <div class="stat-chip">
         <span class="label">Medium</span>
-        <span class="value">${counts.MEDIUM}</span>
+        <span class="value">${sev.MEDIUM || 0}</span>
+      </div>
+      <div class="stat-chip">
+        <span class="label">Low</span>
+        <span class="value">${sev.LOW || 0}</span>
       </div>
       <div class="stat-chip">
         <span class="label">Dep File</span>
@@ -449,8 +453,8 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function renderVulns(vulns) {
-    if (!vulns.length) {
+  function renderVulns(vulns, totalCount) {
+    if (!vulns || !vulns.length) {
       resultsEl.innerHTML = `
         <div class="empty-state">
           <div class="big">✓</div>
@@ -459,7 +463,11 @@
       return;
     }
 
-    resultsEl.innerHTML = `<div class="vuln-list">${vulns.map((v, i) => {
+    const note = totalCount > vulns.length
+      ? `<div style="font-size:13px;color:var(--fg-muted);font-family:var(--mono);margin-bottom:16px;">Showing top ${vulns.length} of ${totalCount} vulnerabilities — sorted by severity</div>`
+      : '';
+
+    resultsEl.innerHTML = note + `<div class="vuln-list">${vulns.map((v, i) => {
       const sev = (v.severity || 'UNKNOWN').toUpperCase();
       const refs = (v.references || []).filter(Boolean);
       return `
@@ -467,7 +475,7 @@
           <div class="vuln-header" onclick="toggleCard(${i})">
             <div class="vuln-meta">
               <div class="vuln-id">${escHtml(v.id)}</div>
-              <div class="vuln-summary">${escHtml(v.summary)}</div>
+              <div class="vuln-summary">${escHtml(v.summary || 'No summary available')}</div>
               <div class="vuln-pkg">${escHtml(v.package)} ${escHtml(v.version || '')} · ${escHtml(v.ecosystem)}</div>
             </div>
             <span class="sev-badge sev-${sev}">${sev}</span>
@@ -476,14 +484,17 @@
             </svg>
           </div>
           <div class="vuln-body">
-            <div class="ai-label">Gemini Explanation</div>
+            <div class="ai-label">Gemma 4 Explanation</div>
             <div class="explanation">${escHtml(v.explanation || 'No explanation available.')}</div>
+            ${v.fix ? `
+            <div class="ai-label" style="margin-top:14px;color:var(--green);">◆ FIX</div>
+            <div style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.2);border-radius:6px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:10px;">${escHtml(v.fix)}</div>
+            ` : ''}
             ${refs.length ? `<div class="refs">${refs.map(r => `<a href="${escHtml(r)}" target="_blank" rel="noopener noreferrer" class="ref-link">${escHtml(r)}</a>`).join('')}</div>` : ''}
           </div>
         </div>`;
     }).join('')}</div>`;
 
-    // Auto-open first card
     if (vulns.length) toggleCard(0);
   }
 
@@ -521,7 +532,7 @@
 
       setStatus('', false);
       renderSummary(data);
-      renderVulns(data.vulnerabilities);
+      renderVulns(data.top_vulnerabilities, data.total_vulnerabilities_found);
     } catch (err) {
       setStatus('', false);
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
