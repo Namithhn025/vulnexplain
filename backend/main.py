@@ -63,7 +63,7 @@ def agent_scanner(packages: list[dict]) -> tuple[list[dict], dict]:
 
 def agent_explainer(vulns: list[dict]) -> list[dict]:
     """Use Gemma 4 to explain top 5 vulns and suggest exact fix versions."""
-    top = vulns[:3]
+    top = vulns[:5]
 
     if not gemini_client:
         for v in top:
@@ -73,14 +73,16 @@ def agent_explainer(vulns: list[dict]) -> list[dict]:
 
     vuln_list = ""
     for i, v in enumerate(top, 1):
-        vuln_list += f"{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','?')} | Severity: {v['severity']}\n   Summary: {v['summary']}\n\n"
+        vuln_list += f"{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','?')} ({v.get('ecosystem','')}) | Severity: {v['severity']}\n   Summary: {v['summary']}\n\n"
 
-    prompt = f"""Security expert. For each vuln below give:
-EXPLANATION: 2 sentences on risk and attacker impact
-FIX: exact upgrade command e.g. "pip install django>=4.2"
+    prompt = f"""You are a security expert. For each vulnerability below, write:
+EXPLANATION: 2 sentences — what the risk is and what an attacker can do
+FIX: the exact fix command with a real version number, e.g. "pip install django>=4.2.0" or "npm install lodash@4.17.21"
+
+Important: Always include a real version number in FIX. Never leave the version blank.
 
 {vuln_list}
-Number each response 1. 2. 3."""
+Respond numbered 1 through {len(top)}. Use exactly the EXPLANATION: and FIX: labels."""
 
     try:
         response = gemini_client.models.generate_content(model=MODEL, contents=prompt)
