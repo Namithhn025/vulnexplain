@@ -8,6 +8,14 @@
 
 ---
 
+## What is OSV.dev?
+
+[OSV.dev](https://osv.dev) (Open Source Vulnerabilities) is Google's open-source vulnerability database. It aggregates CVEs and security advisories from GitHub, PyPI, npm, and 15+ other ecosystems into one free, unified API. Unlike the NVD (National Vulnerability Database) which is hard to query, OSV.dev is designed specifically for dependency scanning — you send it a package name + version and it tells you every known vulnerability. No API key required.
+
+VulnExplain uses OSV.dev's batch query endpoint to check all dependencies in a repo simultaneously, making scans fast and comprehensive.
+
+---
+
 ## The Problem
 
 Every software project depends on open-source packages. Many of those packages have known security vulnerabilities — but developers don't know about them. And even when they find out, CVE reports look like this:
@@ -65,7 +73,7 @@ GitHub Repo URL
 | Layer | Technology |
 |---|---|
 | Backend | Python, FastAPI |
-| Vulnerability Data | OSV.dev API (free, no key needed) |
+| Vulnerability Data | [OSV.dev](https://osv.dev) — Open Source Vulnerabilities database (free, no key needed) |
 | AI Explanations | Gemma 4 via Gemini API |
 | Frontend | Vanilla HTML/CSS/JS |
 | Deployment | Render |
