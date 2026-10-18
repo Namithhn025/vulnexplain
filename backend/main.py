@@ -93,7 +93,7 @@ FIX: <exact command like "{pkg_cmd} {v['package']}>=X.Y.Z">"""
 
 def agent_explainer(vulns: list[dict]) -> list[dict]:
     """Use Gemma 4 to explain top 5 vulns one at a time."""
-    top = vulns[:5]
+    top = vulns[:10]
     for v in top:
         v["explanation"], v["fix"] = explain_one(v)
     return top

@@ -1,386 +1,509 @@
 <title>VulnExplain</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
-  /* Dark terminal-inspired layout — monospace data columns, accent red-orange for severity */
+  /* Brutalist security terminal — ink on paper, acid green accents, zero decoration */
   :root {
-    --bg: #0d0f14;
-    --surface: #141720;
-    --border: #22263a;
-    --fg: #e2e6f0;
-    --fg-muted: #7a829a;
-    --accent: #ff5733;
-    --accent-soft: rgba(255,87,51,0.12);
-    --green: #2ecc71;
-    --yellow: #f0c040;
-    --red: #ff4444;
-    --blue: #4fa3e0;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', system-ui, sans-serif;
-    color-scheme: dark;
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      --bg: #f5f6fa;
-      --surface: #ffffff;
-      --border: #dde1ee;
-      --fg: #1a1d2e;
-      --fg-muted: #6b7290;
-      --accent: #e0411a;
-      --accent-soft: rgba(224,65,26,0.08);
-      color-scheme: light;
-    }
-  }
-  :root[data-theme="light"] {
-    --bg: #f5f6fa;
-    --surface: #ffffff;
-    --border: #dde1ee;
-    --fg: #1a1d2e;
-    --fg-muted: #6b7290;
-    --accent: #e0411a;
-    --accent-soft: rgba(224,65,26,0.08);
+    --bg: #f0ede8;
+    --surface: #e8e4de;
+    --surface2: #dedad3;
+    --border: #c8c2b8;
+    --fg: #1a1714;
+    --fg-muted: #7a746c;
+    --accent: #b8ff00;
+    --accent-dark: #8cc200;
+    --red: #d63030;
+    --orange: #d96820;
+    --yellow: #c8900a;
+    --green: #2a8a3e;
+    --blue: #1a5fa8;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', system-ui, sans-serif;
     color-scheme: light;
   }
 
-  *, *::before, *::after { box-sizing: border-box; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e0d0b;
+      --surface: #171512;
+      --surface2: #1f1d19;
+      --border: #2e2b25;
+      --fg: #f0ede8;
+      --fg-muted: #7a746c;
+      --accent: #b8ff00;
+      --accent-dark: #8cc200;
+      --red: #ff4444;
+      --orange: #ff7a30;
+      --yellow: #ffb020;
+      --green: #3ecf5a;
+      --blue: #4a9eff;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e0d0b;
+    --surface: #171512;
+    --surface2: #1f1d19;
+    --border: #2e2b25;
+    --fg: #f0ede8;
+    --fg-muted: #7a746c;
+    --accent: #b8ff00;
+    --accent-dark: #8cc200;
+    --red: #ff4444;
+    --orange: #ff7a30;
+    --yellow: #ffb020;
+    --green: #3ecf5a;
+    --blue: #4a9eff;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    margin: 0;
     background: var(--bg);
     color: var(--fg);
     font-family: var(--sans);
     font-size: 15px;
     line-height: 1.6;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
     padding-block: 0;
     min-height: 100%;
   }
 
-  /* Header */
+  /* ── Header ── */
   .header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    padding-block: 32px 24px;
+    border-bottom: 2px solid var(--fg);
+    margin-bottom: 40px;
+    flex-wrap: wrap;
     gap: 12px;
-    padding-block: 28px 20px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 32px;
-  }
-  .logo-icon {
-    width: 36px; height: 36px;
-    background: var(--accent);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--mono);
-    font-weight: 600;
-    font-size: 14px;
-    color: #fff;
-    flex-shrink: 0;
-  }
-  .logo-text {
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-  }
-  .logo-text span { color: var(--accent); }
-  .header-sub {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--fg-muted);
-    font-family: var(--mono);
   }
 
-  /* Scan form */
-  .scan-form {
+  .brand {
     display: flex;
-    gap: 10px;
-    align-items: stretch;
-    margin-bottom: 32px;
+    align-items: baseline;
+    gap: 0;
+  }
+
+  .brand-name {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .brand-name .vuln { color: var(--fg); }
+  .brand-name .explain {
+    color: var(--fg);
+    background: var(--accent);
+    padding: 2px 6px;
+    margin-left: 2px;
+  }
+
+  .header-tags {
+    display: flex;
+    gap: 8px;
     flex-wrap: wrap;
   }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1.5px solid var(--fg);
+    color: var(--fg);
+  }
+
+  /* ── Scan form ── */
+  .scan-section {
+    margin-bottom: 40px;
+  }
+
+  .scan-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin-bottom: 10px;
+  }
+
+  .scan-row {
+    display: flex;
+    gap: 0;
+    border: 2px solid var(--fg);
+    background: var(--surface);
+  }
+
   .scan-input {
     flex: 1;
     min-width: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    padding: 14px 18px;
     font-family: var(--mono);
     font-size: 14px;
     color: var(--fg);
     outline: none;
-    transition: border-color 0.15s;
-    min-width: 200px;
   }
   .scan-input::placeholder { color: var(--fg-muted); }
-  .scan-input:focus { border-color: var(--accent); }
 
   .scan-btn {
-    background: var(--accent);
-    color: #fff;
+    background: var(--fg);
+    color: var(--bg);
     border: none;
-    border-radius: 8px;
-    padding: 12px 24px;
+    padding: 14px 28px;
     font-family: var(--sans);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity 0.15s, transform 0.1s;
+    transition: background 0.1s, color 0.1s;
+    flex-shrink: 0;
   }
-  .scan-btn:hover { opacity: 0.88; }
-  .scan-btn:active { transform: scale(0.97); }
-  .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .scan-btn:hover { background: var(--accent); color: var(--fg); }
+  .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .scan-btn:disabled:hover { background: var(--fg); color: var(--bg); }
 
-  /* Status / loading */
+  /* ── Status ── */
   .status-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 24px;
+    gap: 12px;
+    padding: 12px 0;
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: 12px;
     color: var(--fg-muted);
+    border-top: 1px solid var(--border);
+    margin-bottom: 8px;
   }
   .spinner {
-    width: 14px; height: 14px;
+    width: 12px; height: 12px;
     border: 2px solid var(--border);
-    border-top-color: var(--accent);
+    border-top-color: var(--accent-dark);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     flex-shrink: 0;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Summary row */
+  /* ── Summary stats ── */
   .summary {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0;
+    border: 2px solid var(--fg);
+    margin-bottom: 40px;
   }
-  .stat-chip {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .stat-chip .label { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
-  .stat-chip .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-  .stat-chip.critical .value { color: var(--red); }
-  .stat-chip.high .value { color: var(--accent); }
 
-  /* Vuln list */
-  .vuln-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+  .stat-cell {
+    padding: 20px 24px;
+    border-right: 1.5px solid var(--fg);
+  }
+  .stat-cell:last-child { border-right: none; }
+
+  .stat-cell .s-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin-bottom: 6px;
+  }
+  .stat-cell .s-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+  }
+  .stat-cell.c-red .s-value { color: var(--red); }
+  .stat-cell.c-orange .s-value { color: var(--orange); }
+  .stat-cell.c-yellow .s-value { color: var(--yellow); }
+  .stat-cell.c-green .s-value { color: var(--green); }
+
+  /* ── Section header ── */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .section-title {
+    font-size: 12px;
+    font-family: var(--mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .section-count {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--fg-muted);
+  }
+
+  /* ── Vuln cards ── */
+  .vuln-list { display: flex; flex-direction: column; gap: 0; margin-bottom: 60px; }
 
   .vuln-card {
+    border: 1.5px solid var(--border);
+    border-top: none;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: border-color 0.15s;
+    transition: background 0.1s;
   }
-  .vuln-card:hover { border-color: var(--accent); }
-  .vuln-card.sev-CRITICAL { border-left: 3px solid var(--red); }
-  .vuln-card.sev-HIGH     { border-left: 3px solid var(--accent); }
-  .vuln-card.sev-MEDIUM   { border-left: 3px solid var(--yellow); }
-  .vuln-card.sev-LOW      { border-left: 3px solid var(--green); }
-  .vuln-card.sev-UNKNOWN  { border-left: 3px solid var(--fg-muted); }
+  .vuln-card:first-child { border-top: 1.5px solid var(--border); }
+
+  .vuln-card.sev-CRITICAL { border-left: 4px solid var(--red); }
+  .vuln-card.sev-HIGH     { border-left: 4px solid var(--orange); }
+  .vuln-card.sev-MEDIUM   { border-left: 4px solid var(--yellow); }
+  .vuln-card.sev-LOW      { border-left: 4px solid var(--green); }
+  .vuln-card.sev-UNKNOWN  { border-left: 4px solid var(--border); }
 
   .vuln-header {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 16px 20px 14px;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
     cursor: pointer;
     user-select: none;
   }
-  .vuln-meta { flex: 1; min-width: 0; }
+  .vuln-header:hover { background: var(--surface2); }
+
+  .sev-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sev-CRITICAL .sev-dot { background: var(--red); }
+  .sev-HIGH     .sev-dot { background: var(--orange); }
+  .sev-MEDIUM   .sev-dot { background: var(--yellow); }
+  .sev-LOW      .sev-dot { background: var(--green); }
+  .sev-UNKNOWN  .sev-dot { background: var(--fg-muted); }
+
   .vuln-id {
     font-family: var(--mono);
     font-size: 13px;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 4px;
-  }
-  .vuln-summary {
-    font-size: 14px;
+    font-weight: 500;
     color: var(--fg);
-    line-height: 1.45;
+    min-width: 200px;
+    flex-shrink: 0;
   }
+
   .vuln-pkg {
     font-family: var(--mono);
     font-size: 12px;
     color: var(--fg-muted);
-    margin-top: 5px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+
   .sev-badge {
     font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 4px;
-    letter-spacing: 0.05em;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1.5px solid currentColor;
     flex-shrink: 0;
-    align-self: flex-start;
   }
-  .sev-CRITICAL { background: rgba(255,68,68,0.15); color: var(--red); }
-  .sev-HIGH     { background: var(--accent-soft); color: var(--accent); }
-  .sev-MEDIUM   { background: rgba(240,192,64,0.12); color: var(--yellow); }
-  .sev-LOW      { background: rgba(46,204,113,0.12); color: var(--green); }
-  .sev-UNKNOWN  { background: rgba(122,130,154,0.15); color: var(--fg-muted); }
+  .sev-CRITICAL { color: var(--red); }
+  .sev-HIGH     { color: var(--orange); }
+  .sev-MEDIUM   { color: var(--yellow); }
+  .sev-LOW      { color: var(--green); }
+  .sev-UNKNOWN  { color: var(--fg-muted); }
 
   .chevron {
-    width: 18px; height: 18px;
+    width: 16px; height: 16px;
     color: var(--fg-muted);
     flex-shrink: 0;
-    transition: transform 0.2s;
-    align-self: center;
+    transition: transform 0.15s;
   }
   .vuln-card.open .chevron { transform: rotate(90deg); }
 
+  /* ── Vuln body ── */
   .vuln-body {
-    border-top: 1px solid var(--border);
-    padding: 18px 20px;
     display: none;
+    padding: 0 20px 20px 44px;
+    border-top: 1px solid var(--border);
   }
   .vuln-card.open .vuln-body { display: block; }
 
-  .ai-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--blue);
+  .vuln-summary-text {
+    font-size: 13px;
+    color: var(--fg-muted);
+    padding: 12px 0 16px;
+    font-style: italic;
+  }
+
+  .block-label {
     font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
     margin-bottom: 8px;
+    margin-top: 16px;
+  }
+  .block-label:first-of-type { margin-top: 0; }
+
+  .explanation-text {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--fg);
+  }
+
+  .fix-box {
+    background: var(--surface2);
+    border: 1.5px solid var(--accent-dark);
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--fg);
+    margin-top: 4px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 12px;
   }
-  .ai-label::before {
-    content: '◆';
-    font-size: 8px;
-  }
-  .explanation {
-    font-size: 14px;
-    line-height: 1.7;
+
+  .copy-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--accent);
     color: var(--fg);
-    margin-bottom: 14px;
-    white-space: pre-wrap;
+    border: none;
+    padding: 4px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-weight: 600;
   }
+  .copy-btn:hover { background: var(--accent-dark); }
 
   .refs {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 10px;
+    margin-top: 4px;
   }
   .ref-link {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--blue);
     text-decoration: none;
-    background: rgba(79,163,224,0.08);
-    padding: 3px 9px;
-    border-radius: 4px;
-    border: 1px solid rgba(79,163,224,0.2);
-    transition: background 0.15s;
+    border-bottom: 1px solid currentColor;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 320px;
+    max-width: 300px;
   }
-  .ref-link:hover { background: rgba(79,163,224,0.16); }
+  .ref-link:hover { opacity: 0.7; }
 
+  /* ── Error ── */
+  .error-bar {
+    border: 2px solid var(--red);
+    color: var(--red);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-family: var(--mono);
+    margin-bottom: 20px;
+  }
+
+  /* ── Empty ── */
   .empty-state {
     text-align: center;
-    padding: 48px 24px;
+    padding: 60px 24px;
     color: var(--fg-muted);
-    font-size: 14px;
-    border: 1px dashed var(--border);
-    border-radius: 10px;
     font-family: var(--mono);
-  }
-  .empty-state .big { font-size: 32px; margin-bottom: 10px; }
-
-  .error-bar {
-    background: rgba(255,68,68,0.1);
-    border: 1px solid rgba(255,68,68,0.3);
-    color: #ff8888;
-    border-radius: 8px;
-    padding: 12px 16px;
     font-size: 13px;
-    margin-bottom: 20px;
+    border: 2px dashed var(--border);
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1.5px solid var(--border);
+    padding-block: 20px;
     font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
   }
 
-  /* No-js / api warning */
-  .api-notice {
-    background: var(--accent-soft);
-    border: 1px solid rgba(255,87,51,0.25);
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 13px;
-    color: var(--fg);
-    margin-bottom: 20px;
-  }
-  .api-notice strong { color: var(--accent); }
-
-  @media (max-width: 480px) {
-    .scan-form { flex-direction: column; }
-    .scan-btn { width: 100%; }
-    .summary { flex-direction: column; }
-    .stat-chip { flex-direction: row; align-items: center; gap: 12px; }
-    .stat-chip .value { font-size: 18px; }
+  @media (max-width: 600px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .stat-cell { border-bottom: 1.5px solid var(--fg); }
+    .vuln-id { min-width: 0; font-size: 11px; }
+    .vuln-pkg { display: none; }
+    .vuln-body { padding-left: 20px; }
   }
 </style>
 
 <div class="header">
-  <div class="logo-icon">VE</div>
-  <div>
-    <div class="logo-text">Vuln<span>Explain</span></div>
+  <div class="brand">
+    <div class="brand-name">
+      <span class="vuln">Vuln</span><span class="explain">Explain</span>
+    </div>
   </div>
-  <div class="header-sub">OSV.dev · Gemma 4 · Multi-Agent</div></div>
+  <div class="header-tags">
+    <span class="tag">OSV.dev</span>
+    <span class="tag">Gemma 4</span>
+    <span class="tag">Multi-Agent</span>
+    <span class="tag">Open Source</span>
+  </div>
 </div>
 
-<div id="api-notice" class="api-notice" hidden>
-  <strong>Note:</strong> Backend must be running at <code>http://localhost:8000</code>. Start it with <code>python main.py</code>.
+<div class="scan-section">
+  <div class="scan-label">GitHub repository URL</div>
+  <form id="scanForm">
+    <div class="scan-row">
+      <input
+        class="scan-input"
+        type="url"
+        id="repoUrl"
+        placeholder="https://github.com/owner/repo"
+        required
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="scan-btn" type="submit" id="scanBtn">Scan →</button>
+    </div>
+  </form>
 </div>
-
-<form class="scan-form" id="scanForm">
-  <input
-    class="scan-input"
-    type="url"
-    id="repoUrl"
-    placeholder="https://github.com/owner/repo"
-    required
-    autocomplete="off"
-    spellcheck="false"
-  >
-  <button class="scan-btn" type="submit" id="scanBtn">Scan Repo</button>
-</form>
 
 <div id="statusBar" class="status-bar" hidden>
   <div class="spinner"></div>
-  <span id="statusText">Scanning dependencies…</span>
+  <span id="statusText">Scanning…</span>
 </div>
 
 <div id="errorBar" class="error-bar" hidden></div>
-
-<div id="summary" class="summary" hidden></div>
+<div id="summary" hidden></div>
 <div id="results"></div>
+
+<div class="footer">
+  <span>VulnExplain — Hacktoberfest Hack Day Bengaluru 2026</span>
+  <span>Team TheCockroaches</span>
+</div>
 
 <script>
   const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
@@ -394,78 +517,59 @@
   const summaryEl = document.getElementById('summary');
   const resultsEl = document.getElementById('results');
 
-  function showError(msg) {
-    errorBar.textContent = msg;
-    errorBar.hidden = false;
-  }
+  function showError(msg) { errorBar.textContent = msg; errorBar.hidden = false; }
   function clearError() { errorBar.hidden = true; }
-
-  function setStatus(msg, visible = true) {
-    statusText.textContent = msg;
-    statusBar.hidden = !visible;
-  }
-
-  function sevCounts(vulns) {
-    const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
-    for (const v of vulns) {
-      const s = (v.severity || 'UNKNOWN').toUpperCase();
-      counts[s in counts ? s : 'UNKNOWN']++;
-    }
-    return counts;
-  }
-
-  function renderSummary(data) {
-    const sev = data.severity_summary || {};
-    summaryEl.innerHTML = `
-      <div class="stat-chip">
-        <span class="label">Packages</span>
-        <span class="value">${data.total_packages_scanned}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="label">Total Vulns</span>
-        <span class="value">${data.total_vulnerabilities_found}</span>
-      </div>
-      <div class="stat-chip critical">
-        <span class="label">Critical</span>
-        <span class="value">${sev.CRITICAL || 0}</span>
-      </div>
-      <div class="stat-chip high">
-        <span class="label">High</span>
-        <span class="value">${sev.HIGH || 0}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="label">Medium</span>
-        <span class="value">${sev.MEDIUM || 0}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="label">Low</span>
-        <span class="value">${sev.LOW || 0}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="label">Dep File</span>
-        <span class="value" style="font-size:13px;align-self:center">${escHtml(data.dependency_file)}</span>
-      </div>
-    `;
-    summaryEl.hidden = false;
-  }
+  function setStatus(msg, visible = true) { statusText.textContent = msg; statusBar.hidden = !visible; }
 
   function escHtml(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function renderSummary(data) {
+    const sev = data.severity_summary || {};
+    summaryEl.innerHTML = `
+      <div class="summary">
+        <div class="stat-cell">
+          <div class="s-label">Packages</div>
+          <div class="s-value">${data.total_packages_scanned}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="s-label">Total Vulns</div>
+          <div class="s-value">${data.total_vulnerabilities_found}</div>
+        </div>
+        <div class="stat-cell c-red">
+          <div class="s-label">Critical</div>
+          <div class="s-value">${sev.CRITICAL || 0}</div>
+        </div>
+        <div class="stat-cell c-orange">
+          <div class="s-label">High</div>
+          <div class="s-value">${sev.HIGH || 0}</div>
+        </div>
+        <div class="stat-cell c-yellow">
+          <div class="s-label">Medium</div>
+          <div class="s-value">${sev.MEDIUM || 0}</div>
+        </div>
+        <div class="stat-cell c-green">
+          <div class="s-label">Low</div>
+          <div class="s-value">${sev.LOW || 0}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="s-label">Dep File</div>
+          <div class="s-value" style="font-size:16px;letter-spacing:0">${escHtml(data.dependency_file)}</div>
+        </div>
+      </div>`;
+    summaryEl.hidden = false;
+  }
+
   function renderVulns(vulns, totalCount) {
     if (!vulns || !vulns.length) {
-      resultsEl.innerHTML = `
-        <div class="empty-state">
-          <div class="big">✓</div>
-          No vulnerabilities found in scanned packages.
-        </div>`;
+      resultsEl.innerHTML = `<div class="empty-state"><div class="big">✓</div>No vulnerabilities found.</div>`;
       return;
     }
 
     const note = totalCount > vulns.length
-      ? `<div style="font-size:13px;color:var(--fg-muted);font-family:var(--mono);margin-bottom:16px;">Showing top ${vulns.length} of ${totalCount} vulnerabilities — sorted by severity</div>`
-      : '';
+      ? `<div class="section-head"><span class="section-title">Top vulnerabilities</span><span class="section-count">Showing ${vulns.length} of ${totalCount} — sorted by severity</span></div>`
+      : `<div class="section-head"><span class="section-title">Vulnerabilities</span><span class="section-count">${vulns.length} found</span></div>`;
 
     resultsEl.innerHTML = note + `<div class="vuln-list">${vulns.map((v, i) => {
       const sev = (v.severity || 'UNKNOWN').toUpperCase();
@@ -473,24 +577,27 @@
       return `
         <div class="vuln-card sev-${sev}" id="card-${i}">
           <div class="vuln-header" onclick="toggleCard(${i})">
-            <div class="vuln-meta">
-              <div class="vuln-id">${escHtml(v.id)}</div>
-              <div class="vuln-summary">${escHtml(v.summary || 'No summary available')}</div>
-              <div class="vuln-pkg">${escHtml(v.package)} ${escHtml(v.version || '')} · ${escHtml(v.ecosystem)}</div>
-            </div>
+            <div class="sev-dot"></div>
+            <div class="vuln-id">${escHtml(v.id)}</div>
+            <div class="vuln-pkg">${escHtml(v.package)} ${escHtml(v.version || '')} · ${escHtml(v.ecosystem)}</div>
             <span class="sev-badge sev-${sev}">${sev}</span>
             <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </div>
           <div class="vuln-body">
-            <div class="ai-label">Gemma 4 Explanation</div>
-            <div class="explanation">${escHtml(v.explanation || 'No explanation available.')}</div>
+            ${v.summary && v.summary !== 'No summary available' ? `<div class="vuln-summary-text">${escHtml(v.summary)}</div>` : ''}
+            <div class="block-label">Gemma 4 Explanation</div>
+            <div class="explanation-text">${escHtml(v.explanation || 'No explanation available.')}</div>
             ${v.fix ? `
-            <div class="ai-label" style="margin-top:14px;color:var(--green);">◆ FIX</div>
-            <div style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.2);border-radius:6px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:10px;">${escHtml(v.fix)}</div>
-            ` : ''}
-            ${refs.length ? `<div class="refs">${refs.map(r => `<a href="${escHtml(r)}" target="_blank" rel="noopener noreferrer" class="ref-link">${escHtml(r)}</a>`).join('')}</div>` : ''}
+            <div class="block-label" style="margin-top:16px;">Fix</div>
+            <div class="fix-box">
+              <span>${escHtml(v.fix)}</span>
+              <button class="copy-btn" onclick="copyFix(event, '${escHtml(v.fix)}')">Copy</button>
+            </div>` : ''}
+            ${refs.length ? `
+            <div class="block-label" style="margin-top:16px;">References</div>
+            <div class="refs">${refs.map(r => `<a href="${escHtml(r)}" target="_blank" rel="noopener noreferrer" class="ref-link">${escHtml(r)}</a>`).join('')}</div>` : ''}
           </div>
         </div>`;
     }).join('')}</div>`;
@@ -499,8 +606,14 @@
   }
 
   window.toggleCard = function(i) {
-    const card = document.getElementById(`card-${i}`);
-    if (card) card.classList.toggle('open');
+    document.getElementById(`card-${i}`)?.classList.toggle('open');
+  };
+
+  window.copyFix = function(e, text) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text).catch(() => {});
+    e.target.textContent = 'Copied!';
+    setTimeout(() => e.target.textContent = 'Copy', 1500);
   };
 
   form.addEventListener('submit', async (e) => {
@@ -512,10 +625,12 @@
     summaryEl.hidden = true;
     resultsEl.innerHTML = '';
     scanBtn.disabled = true;
-    setStatus('Fetching dependency file…');
+    setStatus('Agent 1 — fetching dependency file…');
 
     try {
-      setStatus('Checking OSV.dev for vulnerabilities…');
+      setTimeout(() => setStatus('Agent 2 — checking OSV.dev for vulnerabilities…'), 2000);
+      setTimeout(() => setStatus('Agent 3 — Gemma 4 explaining vulnerabilities…'), 5000);
+
       const res = await fetch(`${API}/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -527,15 +642,13 @@
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
 
-      setStatus('Getting AI explanations from Gemini…');
       const data = await res.json();
-
       setStatus('', false);
       renderSummary(data);
       renderVulns(data.top_vulnerabilities, data.total_vulnerabilities_found);
     } catch (err) {
       setStatus('', false);
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+      if (err.message.includes('fetch') || err.message.includes('Network')) {
         showError('Cannot reach the backend. Make sure it\'s running: cd backend && python main.py');
       } else {
         showError(err.message);
