@@ -118,6 +118,22 @@ def _extract_severity(v: dict) -> str:
         sev = aff.get("ecosystem_specific", {}).get("severity", "")
         if sev:
             return sev.upper()
+    # Fallback: infer from summary + id text
+    text = v.get("summary", "") + " " + v.get("id", "")
+    return _infer_severity_from_text(text)
+
+
+def _infer_severity_from_text(text: str) -> str:
+    """Infer severity from summary/id keywords when OSV has no score."""
+    t = text.lower()
+    if any(k in t for k in ["remote code execution", "rce", "sql injection", "authentication bypass", "privilege escalation"]):
+        return "CRITICAL"
+    if any(k in t for k in ["xss", "cross-site scripting", "csrf", "open redirect", "xxe", "injection", "directory traversal"]):
+        return "HIGH"
+    if any(k in t for k in ["denial of service", "dos", "redos", "regex", "memory", "cpu"]):
+        return "MEDIUM"
+    if any(k in t for k in ["information disclosure", "timing", "log", "verbose"]):
+        return "LOW"
     return "UNKNOWN"
 
 
