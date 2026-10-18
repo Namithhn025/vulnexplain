@@ -61,57 +61,41 @@ def agent_scanner(packages: list[dict]) -> tuple[list[dict], dict]:
 
 # ── Agent 3: Explainer ────────────────────────────────────────────────────────
 
-def agent_explainer(vulns: list[dict]) -> list[dict]:
-    """Use Gemma 4 to explain top 5 vulns and suggest exact fix versions."""
-    top = vulns[:5]
-
+def explain_one(v: dict) -> tuple[str, str]:
+    """Call Gemma 4 for a single vulnerability — reliable, no cutoff."""
     if not gemini_client:
-        for v in top:
-            v["explanation"] = "Set GEMINI_API_KEY to get AI explanations."
-            v["fix"] = "Check the package's changelog for a patched version."
-        return top
+        return "Set GEMINI_API_KEY to get AI explanations.", ""
 
-    vuln_list = ""
-    for i, v in enumerate(top, 1):
-        vuln_list += f"{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','?')} ({v.get('ecosystem','')}) | Severity: {v['severity']}\n   Summary: {v['summary']}\n\n"
+    ecosystem = v.get("ecosystem", "")
+    pkg_cmd = "pip install" if ecosystem == "PyPI" else "npm install"
 
-    prompt = f"""You are a security expert. For each vulnerability below, write:
-EXPLANATION: 2 sentences — what the risk is and what an attacker can do
-FIX: the exact fix command with a real version number, e.g. "pip install django>=4.2.0" or "npm install lodash@4.17.21"
+    prompt = f"""You are a security expert. Explain this vulnerability in 2 plain English sentences for a developer. Then give the fix command.
 
-Important: Always include a real version number in FIX. Never leave the version blank.
+Package: {v['package']} {v.get('version', '?')} ({ecosystem})
+ID: {v['id']}
+Summary: {v['summary']}
 
-{vuln_list}
-Respond numbered 1 through {len(top)}. Use exactly the EXPLANATION: and FIX: labels."""
+Reply in exactly this format:
+EXPLANATION: <2 sentences on risk and attacker impact>
+FIX: <exact command like "{pkg_cmd} {v['package']}>=X.Y.Z">"""
 
     try:
         response = gemini_client.models.generate_content(model=MODEL, contents=prompt)
         text = response.text.strip()
-
-        # Parse each numbered block
-        blocks = re.split(r'\n?(?=\d+\.)', text)
-        explanations = []
-        fixes = []
-        for block in blocks:
-            if not block.strip():
-                continue
-            exp_match = re.search(r'EXPLANATION:\s*(.+?)(?=\nFIX:|\Z)', block, re.DOTALL)
-            fix_match = re.search(r'FIX:\s*(.+?)(?=\n\d+\.|\Z)', block, re.DOTALL)
-            explanations.append(exp_match.group(1).strip() if exp_match else "Explanation unavailable.")
-            fix_raw = fix_match.group(1).strip() if fix_match else ""
-            # Strip markdown backticks
-            fix_clean = fix_raw.strip('`').strip()
-            fixes.append(fix_clean if fix_clean else "Check the package's changelog for a patched version.")
-
-        for i, v in enumerate(top):
-            v["explanation"] = explanations[i] if i < len(explanations) else "Explanation unavailable."
-            v["fix"] = fixes[i] if i < len(fixes) else "Check the package's changelog for a patched version."
-
+        exp_match = re.search(r'EXPLANATION:\s*(.+?)(?=\nFIX:|\Z)', text, re.DOTALL)
+        fix_match = re.search(r'FIX:\s*(.+)', text)
+        explanation = exp_match.group(1).strip() if exp_match else text[:300]
+        fix = fix_match.group(1).strip().strip('`') if fix_match else f"Upgrade {v['package']} to the latest version."
+        return explanation, fix
     except Exception as e:
-        for v in top:
-            v["explanation"] = f"Gemma 4 unavailable: {e}"
-            v["fix"] = "Check the package's changelog for a patched version."
+        return f"Explanation unavailable: {e}", f"Upgrade {v['package']} to the latest version."
 
+
+def agent_explainer(vulns: list[dict]) -> list[dict]:
+    """Use Gemma 4 to explain top 5 vulns one at a time."""
+    top = vulns[:5]
+    for v in top:
+        v["explanation"], v["fix"] = explain_one(v)
     return top
 
 
