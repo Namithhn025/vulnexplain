@@ -59,7 +59,7 @@ Vulnerabilities:
 
     try:
         response = gemini_client.models.generate_content(
-            model="gemma-4-31b-it",
+            model="gemma-4-26b-a4b-it",
             contents=prompt,
         )
         text = response.text.strip()
@@ -95,8 +95,8 @@ def scan_repo(req: ScanRequest):
     severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "UNKNOWN": 4}
     vulns.sort(key=lambda v: severity_order.get(v["severity"].upper(), 4))
 
-    # Cap at 15 to keep response fast
-    vulns = vulns[:15]
+    # Cap at 5 top vulns for fast response
+    vulns = vulns[:5]
     explanations = explain_vulns_batch(vulns)
     enriched = []
     for v, explanation in zip(vulns, explanations):
