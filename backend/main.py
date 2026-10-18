@@ -53,7 +53,7 @@ Explain:
 
     try:
         response = gemini_client.models.generate_content(
-            model="gemma-3-27b-it",
+            model="gemini-2.0-flash",
             contents=prompt,
         )
         return response.text.strip()
