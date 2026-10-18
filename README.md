@@ -2,6 +2,11 @@
 
 > Scan any GitHub repo for vulnerable dependencies. Get plain-English explanations powered by Gemma 4. Know exactly what to fix.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-vulnexplain--btbp.onrender.com-orange?style=flat-square)](https://vulnexplain-btbp.onrender.com)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square&logo=python)](https://python.org)
+[![Gemma 4](https://img.shields.io/badge/AI-Gemma%204-green?style=flat-square&logo=google)](https://ai.google.dev)
+[![OSV.dev](https://img.shields.io/badge/CVE%20Data-OSV.dev-lightblue?style=flat-square)](https://osv.dev)
+
 **Live demo:** https://vulnexplain-btbp.onrender.com
 
 ![VulnExplain Screenshot](docs/screenshot.png)
@@ -104,9 +109,27 @@ https://github.com/nVisium/django.nV       # Python — 46 vulns
 https://github.com/OWASP/NodeGoat          # Node.js — dozens of vulns
 ```
 
+## Why Gemma 4?
+
+Gemma 4 (`gemma-4-26b-a4b-it`) is Google's open-weight model — meaning anyone can run it locally or in the cloud without vendor lock-in. We use it because:
+
+- **Open source aligned** — an open-weight model explaining open-source vulnerabilities feels right
+- **Fast** — the mixture-of-experts architecture (26B active parameters) gives quality responses quickly
+- **Accurate for security** — Gemma 4 understands CVE descriptions, attack vectors, and package ecosystems well enough to give actionable, developer-friendly explanations
+
+## How VulnExplain Helps Open Source
+
+Open source powers the world — but dependency vulnerabilities are the #1 attack vector. Most developers never check. VulnExplain makes it trivially easy:
+
+- **No setup** — paste a GitHub URL, get results in under 2 minutes
+- **No jargon** — Gemma 4 translates CVE-speak into plain English
+- **Actionable** — every finding comes with the exact `pip install` or `npm install` fix command
+- **Free** — OSV.dev is free, Gemma API has a free tier, the tool is open source
+
 ## Hackathon
 
 Built for **Hacktoberfest Hack Day Bengaluru 2026**
-- **Track:** Track 2 — Best Open-Source AI Project (O3: Trustworthy and Verifiable AI)
+- **Primary Track:** Track 2 — Best Open-Source AI Project (O3: Trustworthy and Verifiable AI)
+- **Secondary Track:** Track 1 — G5: Built with Gemma 4
 - **Team:** TheCockroaches
 - **Event:** 18 October 2026, Startup Park, Bengaluru
