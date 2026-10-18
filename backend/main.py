@@ -39,6 +39,10 @@ class ScanRequest(BaseModel):
     repo_url: str
 
 
+# In-memory scan history (shared across all users, max 30)
+scan_history: list[dict] = []
+
+
 # ── Agent 1: Fetcher ─────────────────────────────────────────────────────────
 
 def agent_fetcher(repo_url: str) -> tuple[list[dict], str]:
@@ -110,6 +114,11 @@ def health():
     return {"ok": True, "gemini_configured": bool(GEMINI_API_KEY), "model": MODEL}
 
 
+@app.get("/history")
+def get_history():
+    return {"scans": scan_history}
+
+
 @app.post("/scan")
 def scan_repo(req: ScanRequest):
     # Agent 1 — Fetch
@@ -127,14 +136,23 @@ def scan_repo(req: ScanRequest):
     # Agent 3 — Explain top 5
     explained = agent_explainer(all_vulns)
 
-    return {
+    result = {
         "repo_url": req.repo_url,
         "dependency_file": file_type,
         "total_packages_scanned": len(packages),
         "total_vulnerabilities_found": total_vulns,
         "severity_summary": severity_summary,
         "top_vulnerabilities": explained,
+        "scanned_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }
+
+    # Save to shared history (max 30, deduplicate by repo_url)
+    global scan_history
+    scan_history = [s for s in scan_history if s["repo_url"] != req.repo_url]
+    scan_history.insert(0, result)
+    scan_history = scan_history[:30]
+
+    return result
 
 
 class TTSRequest(BaseModel):

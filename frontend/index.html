@@ -606,36 +606,47 @@
     try { localStorage.setItem('ve-theme', next); } catch(e) {}
   };
 
-  // ── Scan history ──
-  function loadHistory() {
+  // ── Scan history (server-side, shared across all users) ──
+  let serverHistory = [];
+
+  async function loadHistory() {
     try {
-      const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
-      if (!h.length) return;
-      const row = document.getElementById('historyRow');
-      row.innerHTML = h.map((entry, i) => `<button class="history-chip" title="${escHtml(entry.url)}" onclick="fillHistory(${i})">${escHtml(entry.url.replace('https://github.com/', ''))}</button>`).join('');
-      document.getElementById('historySection').hidden = false;
+      const res = await fetch(`${API}/history`);
+      if (!res.ok) return;
+      const data = await res.json();
+      serverHistory = data.scans || [];
+      renderHistoryChips();
     } catch(e) {}
   }
+
+  function renderHistoryChips() {
+    if (!serverHistory.length) return;
+    const row = document.getElementById('historyRow');
+    row.innerHTML = serverHistory.map((entry, i) => {
+      const label = entry.repo_url.replace('https://github.com/', '');
+      const vulns = entry.total_vulnerabilities_found || 0;
+      return `<button class="history-chip" title="${escHtml(entry.repo_url)}" onclick="fillHistory(${i})">${escHtml(label)} <span style="opacity:0.6">(${vulns})</span></button>`;
+    }).join('');
+    document.getElementById('historySection').hidden = false;
+  }
+
   function saveHistory(url, data) {
-    try {
-      let h = JSON.parse(localStorage.getItem('ve-history') || '[]');
-      h = [{ url, data }, ...h.filter(e => e.url !== url)].slice(0, 3);
-      localStorage.setItem('ve-history', JSON.stringify(h));
-      loadHistory();
-    } catch(e) {}
+    // Server saves it automatically on /scan — just refresh chips
+    setTimeout(loadHistory, 500);
   }
+
   window.fillHistory = function(idx) {
-    try {
-      const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
-      const entry = h[idx];
-      if (!entry) return;
-      repoInput.value = entry.url;
-      lastScanData = entry.data;
-      clearError();
-      renderSummary(entry.data);
-      renderVulns(entry.data.top_vulnerabilities, entry.data.total_vulnerabilities_found);
-    } catch(e) {}
+    const entry = serverHistory[idx];
+    if (!entry) return;
+    repoInput.value = entry.repo_url;
+    lastScanData = entry;
+    clearError();
+    summaryEl.hidden = true;
+    resultsEl.innerHTML = '';
+    renderSummary(entry);
+    renderVulns(entry.top_vulnerabilities, entry.total_vulnerabilities_found);
   };
+
   loadHistory();
 
   // ── Sarvam TTS ──
