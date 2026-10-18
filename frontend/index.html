@@ -436,6 +436,67 @@
   }
   .empty-state .big { font-size: 40px; margin-bottom: 12px; }
 
+  /* ── Dark mode toggle ── */
+  .theme-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--fg-muted);
+    border: 1.5px solid var(--border);
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .theme-btn:hover { border-color: var(--fg); color: var(--fg); }
+
+  /* ── Scan history ── */
+  .history-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .history-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--fg-muted);
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-chip:hover { border-color: var(--fg); color: var(--fg); }
+  .history-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin-bottom: 8px;
+  }
+
+  /* ── Export btn ── */
+  .export-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--fg-muted);
+    border: 1.5px solid var(--border);
+    padding: 5px 12px;
+    cursor: pointer;
+    margin-left: auto;
+    display: block;
+    margin-bottom: 12px;
+  }
+  .export-btn:hover { border-color: var(--accent-dark); color: var(--fg); }
+
   /* ── Footer ── */
   .footer {
     border-top: 1.5px solid var(--border);
@@ -470,7 +531,12 @@
     <span class="tag">Gemma 4</span>
     <span class="tag">Multi-Agent</span>
     <span class="tag">Open Source</span>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">Dark</button>
   </div>
+</div>
+<div id="historySection" hidden>
+  <div class="history-label">Recent scans</div>
+  <div class="history-row" id="historyRow"></div>
 </div>
 
 <div class="scan-section">
@@ -507,6 +573,56 @@
 
 <script>
   const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
+  let lastScanData = null;
+
+  // ── Theme toggle ──
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('themeBtn');
+  try {
+    const saved = localStorage.getItem('ve-theme');
+    if (saved) { root.dataset.theme = saved; themeBtn.textContent = saved === 'dark' ? 'Light' : 'Dark'; }
+  } catch(e) {}
+  window.toggleTheme = function() {
+    const isDark = root.dataset.theme === 'dark' || (!root.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const next = isDark ? 'light' : 'dark';
+    root.dataset.theme = next;
+    themeBtn.textContent = next === 'dark' ? 'Light' : 'Dark';
+    try { localStorage.setItem('ve-theme', next); } catch(e) {}
+  };
+
+  // ── Scan history ──
+  function loadHistory() {
+    try {
+      const h = JSON.parse(localStorage.getItem('ve-history') || '[]');
+      if (!h.length) return;
+      const row = document.getElementById('historyRow');
+      row.innerHTML = h.map(url => `<button class="history-chip" title="${escHtml(url)}" onclick="useHistory('${escHtml(url)}')">${escHtml(url.replace('https://github.com/', ''))}</button>`).join('');
+      document.getElementById('historySection').hidden = false;
+    } catch(e) {}
+  }
+  function saveHistory(url) {
+    try {
+      let h = JSON.parse(localStorage.getItem('ve-history') || '[]');
+      h = [url, ...h.filter(u => u !== url)].slice(0, 3);
+      localStorage.setItem('ve-history', JSON.stringify(h));
+      loadHistory();
+    } catch(e) {}
+  }
+  window.useHistory = function(url) {
+    repoInput.value = url;
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+  };
+  loadHistory();
+
+  // ── Export JSON ──
+  window.exportJSON = function() {
+    if (!lastScanData) return;
+    const blob = new Blob([JSON.stringify(lastScanData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `vulnexplain-${Date.now()}.json`;
+    a.click();
+  };
 
   const form = document.getElementById('scanForm');
   const repoInput = document.getElementById('repoUrl');
@@ -568,10 +684,12 @@
     }
 
     const note = totalCount > vulns.length
-      ? `<div class="section-head"><span class="section-title">Top vulnerabilities</span><span class="section-count">Showing ${vulns.length} of ${totalCount} — sorted by severity</span></div>`
+      ? `<div class="section-head"><span class="section-title">Top vulnerabilities</span><span class="section-count">Showing top ${vulns.length} of ${totalCount} — sorted by severity</span></div>`
       : `<div class="section-head"><span class="section-title">Vulnerabilities</span><span class="section-count">${vulns.length} found</span></div>`;
 
-    resultsEl.innerHTML = note + `<div class="vuln-list">${vulns.map((v, i) => {
+    const exportBtn = `<button class="export-btn" onclick="exportJSON()">⬇ Export JSON</button>`;
+
+    resultsEl.innerHTML = note + exportBtn + `<div class="vuln-list">${vulns.map((v, i) => {
       const sev = (v.severity || 'UNKNOWN').toUpperCase();
       const refs = (v.references || []).filter(Boolean);
       return `
@@ -643,6 +761,8 @@
       }
 
       const data = await res.json();
+      lastScanData = data;
+      saveHistory(url);
       setStatus('', false);
       renderSummary(data);
       renderVulns(data.top_vulnerabilities, data.total_vulnerabilities_found);
