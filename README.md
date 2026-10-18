@@ -110,7 +110,3 @@ Built for **Hacktoberfest Hack Day Bengaluru 2026**
 - **Track:** Track 2 — Best Open-Source AI Project (O3: Trustworthy and Verifiable AI)
 - **Team:** TheCockroaches
 - **Event:** 18 October 2026, Startup Park, Bengaluru
-
-## License
-
-MIT
