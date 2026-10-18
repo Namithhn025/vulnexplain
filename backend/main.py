@@ -63,7 +63,7 @@ def agent_scanner(packages: list[dict]) -> tuple[list[dict], dict]:
 
 def agent_explainer(vulns: list[dict]) -> list[dict]:
     """Use Gemma 4 to explain top 5 vulns and suggest exact fix versions."""
-    top = vulns[:5]
+    top = vulns[:3]
 
     if not gemini_client:
         for v in top:
@@ -75,15 +75,12 @@ def agent_explainer(vulns: list[dict]) -> list[dict]:
     for i, v in enumerate(top, 1):
         vuln_list += f"{i}. ID: {v['id']} | Package: {v['package']} {v.get('version','?')} | Severity: {v['severity']}\n   Summary: {v['summary']}\n\n"
 
-    prompt = f"""You are a security expert helping developers understand vulnerabilities.
+    prompt = f"""Security expert. For each vuln below give:
+EXPLANATION: 2 sentences on risk and attacker impact
+FIX: exact upgrade command e.g. "pip install django>=4.2"
 
-For each vulnerability below, respond with EXACTLY this format:
-EXPLANATION: <2-3 plain English sentences — what the risk is and what an attacker could do>
-FIX: <one line — the exact upgrade command or version, e.g. "pip install django>=4.2.0" or "npm install express@4.18.2">
-
----
 {vuln_list}
-Respond for all {len(top)} vulnerabilities, numbered 1 to {len(top)}."""
+Number each response 1. 2. 3."""
 
     try:
         response = gemini_client.models.generate_content(model=MODEL, contents=prompt)
@@ -96,10 +93,13 @@ Respond for all {len(top)} vulnerabilities, numbered 1 to {len(top)}."""
         for block in blocks:
             if not block.strip():
                 continue
-            exp_match = re.search(r'EXPLANATION:\s*(.+?)(?=FIX:|$)', block, re.DOTALL)
-            fix_match = re.search(r'FIX:\s*(.+?)(?=\n\d+\.|$)', block, re.DOTALL)
+            exp_match = re.search(r'EXPLANATION:\s*(.+?)(?=\nFIX:|\Z)', block, re.DOTALL)
+            fix_match = re.search(r'FIX:\s*(.+?)(?=\n\d+\.|\Z)', block, re.DOTALL)
             explanations.append(exp_match.group(1).strip() if exp_match else "Explanation unavailable.")
-            fixes.append(fix_match.group(1).strip() if fix_match else "Check the package's changelog for a patched version.")
+            fix_raw = fix_match.group(1).strip() if fix_match else ""
+            # Strip markdown backticks
+            fix_clean = fix_raw.strip('`').strip()
+            fixes.append(fix_clean if fix_clean else "Check the package's changelog for a patched version.")
 
         for i, v in enumerate(top):
             v["explanation"] = explanations[i] if i < len(explanations) else "Explanation unavailable."
